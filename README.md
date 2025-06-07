@@ -2,37 +2,51 @@
 
 Hello! This repository is a full tutorial on how to run a [Dusk Provisioner Node](https://docs.dusk.network/operator/provisioner/) using Mutli Signature with an external [rusk-wallet](https://github.com/dusk-network/rusk/tree/master/rusk-wallet). 
 The goal is to strictly seperate access to wallet and node to increase the security of your setup. This is achieved by taking advantage of MultiSig!
-I have created this guide and two scripts to allow node-runners to increase their security and keep their funds safer. The scripts are currently written to work for zsh (macOS / Linux) and commands on <ins>__Nocturne__</ins> (Testnet). If anyone wants to make them useable on Windows/Linux feel free to share your script with us! The scripts are not necessary to use, you can also install the rusk-wallet yourself on any device (but the node) you like, though an external device is probably the smartest choice.
+I have created this guide and two scripts to allow node-runners to increase their security and keep their funds safer. 
 
-The repository contains two scripts: 
-- __format_encrypt_usb.sh__: Formats and Encrypts a mounted device (i.e. an USB device). Beware that this script is very experimental and I would advise to be very cautious while running it. It formats the first mounted device it finds; even though you need to confirm the step it is still recommended to make sure you don't delete any other partition !!
-- __install_rust_rusk_wallet.sh__: This installs the rust library and afterwards clones the latest (stable) release of rusk-wallet. After the script the wallet is in the directory: `/.cargo/bin`
+#####The scripts are currently written  for zsh (macOS / Linux) and commands on <ins>__Nocturne__</ins> (Testnet). 
 
-List of basic, regular commands you will need for the node:
-- rusk-wallet: `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory --network testnet`
+If anyone wants to make them useable on Windows/Linux feel free to share your script with us! 
 
-    - Since we want to have the `rusk-wallet` on an external drive and leave no data on our local machine or node, we have to define the `--wallet-dir` every time we use a `rusk-wallet`-command. That way the wallet data is saved / retrieved from the correct directory.
-    - If you do not want to use the full path to `rusk-wallet` every time, you can set an environment variable in your `/.zshrc` (mac os):
+The scripts are not necessary to use, you can also install the rusk-wallet yourself on any device (but the node) you like, though an external device is probably the smartest choice.
+
+The repository contains the following scripts: 
+- __macos_usb_setup.sh__: This script is written for macOS. It formats a mounted device to APFS and encrypts it afterwards. I used the script during the creation of this guide to speed up my testing. It is very raw and I would advise you to look into the script first, if you want to use it. I will describe an [alternative approach](#veracrypt_anchor) when we come to that step.
+- __linux_install_rusk_wallet.sh__: This script is written for Linux. It installs Rust locally and then clones and builds the latest `rusk-wallet`, which is copied to the USB at the end.
+- __macos_install_rusk_wallet.sh__: This script is written for macOS. It's identical to the Linux script, but it installs Rust on the USB device. After the script the executable `rusk-wallet` is in the directory: `/.cargo/bin`.
+
+List of some regular commands we will use for the node:
+- __rusk-wallet__: `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory`
+
+    - __If you want use the wallet on Nocturne (Testnet), you add the `--network testnet` flag to the end of the command.__
+
+    - Since we want to have the `rusk-wallet` on an external drive and leave no data on our local machine (or node for that matter), we have to define the `--wallet-dir` every time we use a `rusk-wallet`-command. That way the wallet data is saved / retrieved from the correct directory, which we will set on our external drive.
+
+    - If you do not want to use the full path to `rusk-wallet` every time, you can set it as an environment variable in your `.zshrc` or `.basrhc`, add this with your path to the `.cargo/bin` directory:
     
-        add `export PATH="/Volumes/usb/testing/.cargo/bin:$PATH"` to /.zshrc, save and run `source ~/.zshrc`.
+        `export PATH="/path/to/your/.cargo/bin:$PATH"`
+        
+        Afterwards run: `source ~/.zshrc`
 
-        Since the goal is to leave no trace of the wallet on the local machine, we won't use it in this guide. (This would not decrease security as far as I understand)
+        That way you will leave some trace of the wallet on your machine, but the securtiy risk should be close to 0. We won't use it in this guide.
 
-    - If you use the wallet on mainnet you can remove the `--network testnet` flag.
+- __SSH connection__: `ssh -i /path/to/keys/example_user_keys -o UserKnownHostsFile=/your/path/to/custom_known_hosts example_user@node_ip`
 
-- SSH connection: `ssh -i /path/to/keys/example_user_keys example_user@node_ip`
+    - Do not use `root` as your standard access to the node, but another dedicated user e.g. `example_user` in our case.
 
-    Do not use `root` as your standard access to the node, but another dedicated user.
+- __Using the encrypted USB__: 
 
-- tba
+    - __Mounting__: `veracrypt /path/to/secure_container.vc /home/user_name/MountFolder`
 
+        The secure container will be accessible in the MountFolder.
+
+    - __Unmounting__: `veracrypt -d /home/user_name/MountFolder`
 
 -------------
 
-The following is a broad description of the steps to create a Dusk provisioner node and an external hard drive wallet. The keys of the wallet are exported via ssh to the machine and a few special steps are taken during the staking process to use multisignature and add extra security to your node.
+The following is a detailed description of creating a `Dusk provisioner node` and an external `USB drive rusk-wallet`. The `keys` of the wallet are exported via SSH to the machine and a few special steps are taken during the staking process to use multisignature and add extra security to your node.
 
-__!! If you are unexperienced try this out on Nocturne (testnet) first!__
-
+__!! If you are unexperienced, please try this out on Nocturne (testnet) first !!__
 
 ------------
 
@@ -40,25 +54,26 @@ __!! If you are unexperienced try this out on Nocturne (testnet) first!__
 
 This guide follows the official [Dusk Node Setup Guide](https://docs.dusk.network/operator/guides/provisioner-node/) with some detours. You can follow the guide or follow my concise list of steps with some additional explanation to some setup steps. The steps described where done on DigitalOcean, so if you set up your VPS with a different provider the steps might be a bit different, but all in all it should be roughly the same.
 
-1. We create a VPS based on the [recommended specs](https://docs.dusk.network/operator/provisioner/) for a Provisioner Node (You can also see an example of the selected DigitalOcean VPS in the official Guide linked above). Select a region, the image for the VPS (currently Ubunutu 24.04 is recommended) and the VPS specs you want.
+1. We create a VPS based on the [recommended specifications](https://docs.dusk.network/operator/provisioner/) for a Provisioner Node (You can also see an example of the selected DigitalOcean VPS in the official Guide linked above). Select a region, the image for the VPS (currently Ubunutu 24.04 is recommended) and the VPS specifications.
 
+2. <a name="ssh-keygen-anchor"></a>The recommended access type to your VPS is a SSH-key. Follow these steps to add the SSH key to the VPS:
+    - Create a SSH key on your machine with this command: `ssh-keygen` (mac os)
+    - Set the path to save the key (e.g. `/Volumes/usb/ssh_keys/root_keys`, where `root_keys` is the name of the key files)
+    - Set a password for the SSH key (if you later login to the VPS via SSH you are prompted to input that password)
+    - Add the content of the .pub file to the SSH key content field, give it a name and save it.
 
-2. <a name="ssh-keygen-anchor"></a>The recommended login type is an SSH-key for root access to your VPS. Follow these steps to add the SSH key to the VPS:
-- create a SSH key on your machine with this command: `ssh-keygen` (mac os)
-- set the path to save the key (e.g. `/Volumes/usb/ssh_keys/root_keys`, where `root_keys` is the name of the key files)
-- set a password for the SSH key (if you later login to the VPS via SSH you are prompted to input that password)
-- Add the content of the .pub file to the SSH key content field, give it a name and save it.
+3. Finish the rest of the setup and create the VPS.
 
-3. Now you can finish the rest of the setup and create the VPS.
+4. Now, we also create a `known_hosts` file on the usb device, which will be used to save the [fingerprints](https://superuser.com/questions/421997/what-is-a-ssh-key-fingerprint-and-how-is-it-generated) of the SSH-keys.
 
-4. Now access the VPS via the root SSH key from your terminal: `ssh -i /Volumes/usb/ssh_keys/root_keys root@ip_of_vps` If you access via SSH the first time you will have to add the key to your 'known hosts', so just enter `yes` to that prompt. Afterwards enter the password set for the SSH key and you should be connected to the VPS.
--> https://stackoverflow.com/questions/10765946/ssh-use-known-hosts-other-than-home-ssh-known-hosts
+    Go to the directory you want to save that and create it with `touch known_hosts` (I named it custom_known_hosts lol)
 
-__-> create a known hosts file to not save this data on the local machine and change all other ssh commands!__
+    Now, try to access the VPS via the root SSH key from your terminal with: `ssh -i /path/to/keys/root_keys -o UserKnownHostsFile=/your/path/to/custom_known_hosts root@node_ip` If you access via SSH the first time you will now have to add the key to your 'known hosts', so just enter `yes` to that prompt. Afterwards enter the password set for the SSH key and you should be connected to the VPS.
 
-5. First off, we need to update the VPS. This is basic best behaviour and you should do this regularly. 
+5. First things first, we need to update the VPS. This is very basic and you should do this regularly. See [here](https://manpages.ubuntu.com/manpages/questing/en/man8/apt.8.html) for a starter. 
 
-    __Beware__: If your node is active with a stake, the node might be offline during the time the VPS libraries are updated. Usually, this is not a problem, but if you don't want to risk getting a soft slash, you should unstake. I advise to do these regular updates routinely, maybe at times where you unstake anyway! 
+    __Warning__: If your node is active with a stake, the node might be offline during the time the VPS libraries are updated. 
+    If you don't want to risk [soft slashes](https://docs.dusk.network/learn/deep-dive/slashing/#_top), you should unstake. I' advise to do these regular updates routinely, maybe at times where you unstake anyway! 
 
     Execute these commands to update all dependencies on the VPS:
 
@@ -120,7 +135,7 @@ __-> create a known hosts file to not save this data on the local machine and ch
 
         `sudo nano /home/example_user/.ssh/authorized_keys` (open the file in the text editor)
 
-    - Afterwards, we save and set proper permissions and add the example_user to the sudo group (probably need to be logged in from root):
+    - Afterwards, we set the proper permissions and add example_user to the sudo group:
 
         `sudo chmod 700 /home/example_user/.ssh`
 
@@ -130,11 +145,11 @@ __-> create a known hosts file to not save this data on the local machine and ch
 
         `sudo usermod -aG sudo example_user`
 
-    This is it for the SSH access to the example_user. Close the terminal and try to access the VPS via the new SSH key for example_user in a new terminal window:
+    Close the terminal and access the VPS via the new SSH key for example_user:
 
-    `ssh -i /Volumes/usb/ssh_keys/example_user_keys example_user@node_ip` (the path in this command is based on the SSH key path defined in this guide)
+    `ssh -i /path/to/keys/example_user_keys -o UserKnownHostsFile=/your/path/to/custom_known_hosts example_user@node_ip`
 
-    If you successfully connect to the VPS, you have set up a dedicated user for your regular access to your node!
+    If you successfully connect to your VPS, you have set up a dedicated user to access to your node in a more secure way!
 
     In the future I will add more guidelines wrt ssh security based on this [article](https://www.digitalocean.com/community/tutorials/how-to-harden-openssh-on-ubuntu-20-04) from DigitalOcean.
 
@@ -142,56 +157,102 @@ __-> create a known hosts file to not save this data on the local machine and ch
 
     `curl --proto '=https' --tlsv1.2 -sSfL https://github.com/dusk-network/node-installer/releases/latest/download/node-installer.sh | sudo bash`
 
-    __!! IMPORTANT: If you try this out on testnet use this command where testnet is defined at the end of the curl !!__
+    __!! IMPORTANT: If you try this out on testnet, use this command where testnet is defined at the end of the curl !!__
 
     `curl --proto '=https' --tlsv1.2 -sSfL https://github.com/dusk-network/node-installer/releases/latest/download/node-installer.sh | sudo bash -s -- --network testnet`
 
-# Install Wallet on USB device
- 
-Alright, we have created a VPS and installed the Provisioner Node!
-Now we will focus on creating a rusk-wallet on an external device. (__Note__: You don't need to install the wallet on an USB drive but security will suffer if you install the wallet on your local machine.) 
+# Encrypt USB device
 
-9. Make both scripts executable
+I will provide two ways to format an USB device (or I guess any other external storage device):
 
-    `chmod +x path/to/format_encrypt_usb.sh` (this is optional; Generally advice is to use a clean usb device for `rusk-wallet`)
+- If you are on MacOS you can use the expterimental __macos_usb_setup__. The format will be APFS and only readable on MacOS (there for sure is a pacakage for that on Linux, [right](https://github.com/sgan81/apfs-fuse)?). Make the script usable on your machine `chmod +x path/to/macos_usb_setup.sh` and afterwards run it with just `path/to/macos_usb_setup.sh`. The script needs to be outside of the USB drive!
 
-    `chmod +x path/to/install_rust_rusk_wallet.sh`
+<a name="veracrypt_anchor"></a>
+- Or follow this way better guide if you are on a Linux based system, which uses `veracrypt` to encrypt a container on the usb device:
 
-(Optional) 10. Run the script format_encrypt_usb.sh (the script needs to be outside of the USB device) 
+    1. Install package for exfat support
 
+        `sudo apt update`
+        
+        `sudo apt install exfatprogs`
+
+    2. Find usb device with `lsblk` (for me it was `sdb/sdb1` - with `sdb1` being the actual usb device partition)
+
+    3. Check if the USB device is still mounted:
+    
+        `mount | grep /sdb/sdb1`
+
+        If yes, unmount it with:
+    
+        `sudo umount /sdb/sdb1`
+
+    4. Now you can format the USB device:
+    
+        `sudo mkfs.exfat -n new_name_for_usb /sdb/sdb1`
+
+        Now we have formatted the USB device to `exFat` format, which works on MacOS and Linux. 
+
+    5. We will use `veracrypt` to create an encrypted container on the USB device. Go to [veracrypt's website](https://veracrypt.io/en/Downloads.html) and download the correct installer for your system and install accordingly.
+
+        (On Linux open a terminal in the directory of the `.deb` file and execute: `sudo apt install ./file_name` with `file_name` being the name of the downloaded `.deb` file.)
+
+
+    6. Now we will create a file on our USB, which will serve as our encrypted container. Name it whatever you want, in this example it will be: `secure_container.vc`. The `.vc` file type is necessary for veracrypt. Enter this in the terminal while you are in the USB directory, where you want the container to be: `touch secure_container.vc`
+
+    7. Now we open a terminal in the USB directory and run the following command to start the process: `veracrypt -t -c` 
+    
+        This will open a text-based wizard which will guide you through the creation process. (I will add a walkthrough on that asap)
+
+    8. After we created the encrypted container, we have to create a directory on which we will mount that encrypted container. You can choose any directory you want. (I just give you an example: `mkdir /home/user_name/MountFolder`)
+
+    9. Now we can mount this encrypted container to a directory and therefore access its contents in that directory:
+
+        `veracrypt /path/to/secure_container.vc /home/user_name/MountFolder` and you should be prompted to enter your password (and possibly a PIM, file, etc. depending on what you set up)
+
+        You will now find in `/home/user_name/MountFolder` the secure container and can create whatever you want in it. As soon as you unmount the directory is not accessible anymore!
+
+    10. After we are done using the encrypted container, we can unmount it with `veracrypt -d /home/user_name/MountFolder`.
+
+
+# Build rusk-wallet
+
+Now we will focus on building `rusk-wallet` and putting it on an USB device for better security. That way a corrupted node won't lead to all your funds being stolen and vice versa. __You can install it on any device you want BUT the machine of the node itself!__ Otherwise our Multisignature approach will be useless.
+
+1. Based on your OS, make the correct script executable and put it inside of the UBS device with `chmod +x path/to/macos_install_rusk_wallet.sh` or `chmod +x path/to/linux_install_rusk_wallet.sh`.
+
+    - Make sure that we have all the necessary libraries to build the rusk-wallet: 
+    
+        `sudo apt update && sudo apt install build-essential pkg-config libssl-dev clang cmake`
+      
+    - The script needs to be inside of the USB device! Now run the script by entering the complete script path into the terminal: `path/to/macos_install_rusk_wallet.sh` 
+    
+    This will take a while and there might be errors because of missing libraries. I hope that won't be the case for you but I can't guarantee 100% success rate. Installing the rusk-wallet manually without the script isn't magic, so feel free to take a look for yourself: 
   
-11. Run the script `install_rust_rusk_wallet.sh` by entering the complete script path into the terminal (the script needs to be inside of the USB device)
-  
-12. Create a new wallet by calling `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory --network testnet` 
+2. Create a new wallet by calling `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory` 
 
-    - the script puts the executable rusk-wallet in the `.cargo/bin/rusk-wallet` directory
+    - The linux script puts the executable `rusk-wallet` directly in the USB drive directory, while the macOS script puts it in the `.cargo/bin/rusk-wallet` directory on the USB drive.
 
-    - `path/for/your/wallet_directory` can be any directory on our usb drive. In our case we can just create a new folder on the usb (`mkdir /Volumes/usb/test_wallet_dir`) and set that as our path, e.g. here it is: `/Volumes/usb/test_wallet_dir`
+    - `path/for/your/wallet_directory` can be any directory on your USB drive. In our case we create a new folder on the USB device (`mkdir /Volumes/usb/test_wallet_dir`) and set that as our `wallet directory`, e.g. `/Volumes/usb/test_wallet_dir`.
     
-    - If you are doing this on __Nocturne__ please specify the network ` --network testnet` as above
-    
-    - If you use mainnet you can remove the option and just use:
-    
-        `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory`
+    - If you are doing this on __Nocturne__ please specify the network ` --network testnet`: `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory --network testnet` every time you use a `rusk-wallet` command.
 
-13. Select the export consensus keys function in __profile 1__ of the `rusk-wallet`, press enter for the default path or type in your own path. Finally, you enter a password for the keys and you have two new files in the path.
+3. Select the export consensus keys function in __Profile 1__ of the `rusk-wallet`, press enter for the default path or type in your own path. Finally, you enter a password for the keys and you have two new files in that path.
 
-    - Alternatively you can use this simply command `/full/path/to/rusk-wallet export -d path -n consensus.keys` which exports it to the `path` you set. 
-    - We should also keep a backup of the `wallet.dat` file in our newly created directory: `/Volumes/usb/test_wallet_dir/wallet.dat` (more on this in the future?)
-    - There is a way to specify of which profile the exported keys are, which I will add asap
-    - Currently, there is no way to change the default `wallet-directory`, so we always have to pass the wallet-dir
+    - Alternatively you can use this simply command `/full/path/to/rusk-wallet export -d path -n consensus.keys` which exports it to the `path` you set. !! There is a way to specify of which profile the exported keys are, which I will add asap
+    - Currently, there is no way to change the default `wallet-directory`, so we always have to pass the wallet-dir argument.
+    - We should also keep a backup of the `wallet.dat` file, which is in our newly created directory: `/Volumes/usb/test_wallet_dir/wallet.dat` (more on this in the future)
 
-    Whatever you prefer it does the same trick. We will need the .keys file in a few moments.
+    Whatever you prefer it does the same trick. We will need the `.keys` file in a few moments.
 
-14. Now you can create a second profile in the menu after loading the wallet, which we will need to sign all of your `stake` / `unstake` / `withdraw` transactions.
+4. Now you can create a second profile in the menu after loading the `rusk-wallet`, which we will need to sign all `stake` / `unstake` / `withdraw` transactions.
 
 
-# MULTISIG
+# MULTISIGNATURE
 
-If you have no clue what Multi Signature is, let me try to explain it in terms of how we use it for Dusk:
-The Provisioner node requires the consensus keys of an active stake to participate in the consensus. Instead of having the wallet on the VPS of the node, we are gonna have a seperate wallet and export the consensus keys from the wallet to the VPS. Additionally, we are gonna keep the funds on the shielded address and do all transactions shielded in order to obfuscate as much as possible to the public. When we stake, we select the address of the second profile of the wallet as the owner. That way the consensus keys we export to the node can never be abused to access your funds on the shielded account of profile 1. (Afaik the public account of profile 1 could be accessed, but since we are not gonna use that to store our DUSK we are not concerned about that.)
+If you have no clue what MultiSignature is, let me try to explain it in terms of how we use it for Dusk:
+The Provisioner node requires the consensus keys of an active stake to participate in the consensus. Instead of having the wallet on the VPS of the node, we are gonna have a seperate wallet and export the consensus keys from the wallet to the VPS. Additionally, we are gonna keep the funds on the `shielded address` and do all transactions `shielded` in order to operate private. During the staking process, we select the address of the second profile of the rusk-wallet as the __owner__. The consensus keys of profile 1, which are still tied to our shielded funds on the same profile, can only be used to access the public funds on that profile. That way any corruption on the side of the node, won't cause any issues for our whole `rusk-wallet`. More on this soon.
 
-Therefore, it is very important that you follow these rules after you are done with the process:
+Therefore, it is very important that you follow these rules:
 - Keep funds on the __shielded__ address of __profile 1__
 - Always do __shielded__ `Stake` / `Withdraw` / `Unstake` operations
 
@@ -200,15 +261,15 @@ Therefore, it is very important that you follow these rules after you are done w
 
 <a name="scp-anchor"></a>
 
-15. We are gonna export the consensus keys of profile 1 via [scp](https://linuxize.com/post/how-to-use-scp-command-to-securely-transfer-files/), which uses the SSH port to securely transfer the .keys file from wallet to node. The command is built with your path to the `.keys` file and a user on the VPS (in our case `example_user`) with the ip-address of the VPS added afterwards as well as the path to save the file on the VPS. If your SSH key is not in the expected default folder (which is??), but instead it lies on an USB device (as it is in our case), we need to specify the path to the SSH file (the one without a file ending). Take a look at this schema: 
+1. We are gonna export the consensus keys of profile 1 via [scp](https://linuxize.com/post/how-to-use-scp-command-to-securely-transfer-files/), which uses the SSH port to securely transfer the `.keys` file from wallet to node. The command is built with your path to the `.keys` file and an user on the VPS (in our case `example_user`) with the IP-address of the VPS added afterwards as well as the path to save the file on the VPS. Take a look at this schema: 
 
-    `scp i- path/to/ssh-key /path/to/file.keys user@ip-address:/opt/dusk/conf`
+    `scp -i path/to/ssh-key -o UserKnownHostsFile=/your/path/to/custom_known_hosts /path/to/file.keys user@ip-address:/path/to/save/keys/to`
 
-    Based on this guide the command would look something like this: 
+    Based on this guide the command would look something like this (default export path of `rusk-wallet ` is `/opt/dusk/conf` and I advise to use it as well): 
 
-    `scp -i /Volumes/usb/ssh_keys/example_user_keys /Volumes/usb/consensus_keys/0.keys example_user@123.45.678.901:/opt/dusk/conf/`
+    `scp -i /Volumes/usb/ssh_keys/example_user_keys -o UserKnownHostsFile=/your/path/to/custom_known_hosts /Volumes/usb/consensus_keys/0.keys example_user@123.45.678.901:/opt/dusk/conf/`
 
-    Create the command, enter it into your terminal and enter your password for the SSH key of `example_user`. You should see this response:
+    Build the command, enter it into your terminal and enter your password for the SSH key of the user you connect to. You should see this response:
 
 
     <figure>
@@ -219,13 +280,14 @@ Therefore, it is very important that you follow these rules after you are done w
     </figure>
 
 
-16. Check that the `.keys` file is in `/opt/dusk/conf` (or your own path):
+2. Check that the `.keys` file is in `/opt/dusk/conf` (or your own path) on your node:
     
-    `cd /opt/dusk/conf` and check with `ls` for all the files in the directory. If you see the `.keys` file the transfer has been successful!
+    `cd /opt/dusk/conf` and check with `ls` for all the files in the directory. If you see the `.keys` file, the transfer has been successful!
 
-    Now run `sh /opt/dusk/bin/setup_consensus_pwd.sh` on your node and enter the password you set for the consensus keys.
+    __IMPORTANT:__ Run `sh /opt/dusk/bin/setup_consensus_pwd.sh` on your node and enter the password you set for the consensus keys. 
 
-17. You will need to check if the `consensus_keys_path` is the correct `.keys` file (due to potentially different naming and/or directory of the file) in the `rusk.toml`, which you can find in its default path `/opt/dusk/conf/rusk.toml` and open with `nano /opt/dusk/conf/rusk.toml`. After saving the changes you can run `service rusk start` to start your node and with `service rusk status` you can check if everything is working as intended. 
+3. Now we will check that the `consensus_keys_path` is set to the correct `.keys` file in the `rusk.toml` (due to potentially different naming and/or change of directory of the file), which you can find in its default path `/opt/dusk/conf/rusk.toml` and open with `nano /opt/dusk/conf/rusk.toml`. After saving the changes, run `service rusk start` to start your node and check with `service rusk status` that everything is up and running.. 
+
 
 <figure>
 <img
@@ -234,45 +296,45 @@ alt="Service Rusk Status and increasing block-height">
 <figcaption>Service Rusk Status and increasing block-height</figcaption>
 </figure>
 
-Afterwards you should see a steady increase for the command `ruskyquery block-height` which returns the current block-height of the node. Since we just started it, it will take a while to sync to the newest block! 
+Afterwards you should see a steady increase of the `block-height` with `ruskyquery block-height`, confirming that your node is syncing to the newest block. Since we just started it, it will take a while to sync to the newest block! 
 
-On Mainnet there is the possibility of [fast-sync](https://docs.dusk.network/operator/guides/fast-sync/), on Nocturne it is decativated as of 1. June 2025.
+On Mainnet there is the possibility of [fast-sync](https://docs.dusk.network/operator/guides/fast-sync/), on Nocturne it is decativated as of 7. June 2025.
 
-__Do not stake your Dusk until the node is fully synced! (See [Slashes](https://docs.dusk.network/learn/deep-dive/slashing/))__
+__Do not stake your Dusk until the node is fully synced! See [Slashes](https://docs.dusk.network/learn/deep-dive/slashing/) for more.__
 
-Also check out `cat /var/log/dusk` and and check the output if the `name=Ratification pk="16DigitsOfYourPk"` is your public address of profile 1 which is your stake address.
+Also check out `cat /var/log/rusk.log` and look in the output for this part: `name=Ratification pk="16DigitsOfYourPk"`. This should be the public address of profile 1, which is your official stake address and confirms that you take part in consensus.
 
-``1999-12-31T11:55:10.049613Z  INFO main{round=397208 iter=0 name=Ratification pk="16DigitsOfYourPk"}: dusk_consensus::aggregator: event="Quorum reached" step=Ratification round=123456 iter=0 vote=Vote: Valid(2f5ab086cb663585...f0d34b66f0aa8p29) total=43 target=43 bitset=1234567 step=2 signature="b85690a5fb600885...799bd1ab72c03585"``
+``1999-12-31T11:55:10.049613Z  INFO main{round=397208 iter=0 name=Ratification pk="16DigitsOfYourPk"}: dusk_consensus::aggregator: event="Quorum reached" step=Ratification round=123456 iter=0 vote=Vote: Valid(2f5ab086cb663585...f0d34b66f0aa8p29) total=42 target=42 bitset=1234567 step=2 signature="b85690a5fb600885...799bd1ab72c03585"``
 
 
-## Staking Process via external rusk-wallet
+## Staking Process using MultiSginature
 
-In order to stake safely, you need to have your funds on the `shielded` address of profile 1 of your rusk-wallet. We are gonna `stake` via a `shielded` transaction but will select the `public key` of profile 2 as the owner of that stake. That way the transaction will be private and the consensus keys on the node can't be used to steal your funds (only from public profile 1 so just keep that at zero and all is fine). 
+In order to stake safely, you need to have your funds on the `shielded` address of profile 1 of your `rusk-wallet`. We are gonna `stake` via a `shielded` transaction, but will select the `public key` of profile 2 as the owner of that stake. This way, the transaction will be private and the consensus keys on the node can't be used to steal your funds (only from public profile 1, so just keep that at zero). 
 
 The staking process itself is fairly simple and short:
 
-18. Open the wallet with: `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory --network testnet` 
+- Open the wallet with `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory` (add `--network testnet` if you are on `Nocturne / Testnet`, don't forget about it!) 
     
-    Access profile 1 in the `rusk-wallet` 
-    
-    -> select `stake` 
-    
-    -> `shielded` 
-    
-    -> choose the `public` address of profile 2 as the `owner` 
-    
-    -> complete `stake` transaction by following the prompts of the rusk-wallet.
+- Access profile 1 in the `rusk-wallet` 
 
-    Now you should be able to see something like this when you run `/Volumes/usb/testing/.cargo/bin/rusk-wallet --wallet-dir path/for/your/wallet_directory --network testnet stake-info` or simply select `stake info` in the `rusk-wallet` menu of your `profile 1`.
+- Select `Stake` 
 
+- Select `Shielded` 
 
-    <figure>
-    <img
-    src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/stake_info.png"
-    alt="Stake Info">
-    <figcaption>Stake Info</figcaption>
-    </figure>
+- Choose the `Public` address of profile 2 as the `owner` of the stake 
+
+- Complete `Stake` process
+
+Now you should be able to see something like this when you run `/full/path/to/rusk-wallet --wallet-dir path/for/your/wallet_directory stake-info` or simply select `stake info` in the `rusk-wallet` menu of your `profile 1`.
 
 
+<figure>
+<img
+src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/stake_info.png"
+alt="Stake Info">
+<figcaption>Stake Info</figcaption>
+</figure>
+
+And that is it. Feel free to create an Issue if you have any feedback, issues or suggestions. Enjoy!
 
 [def]: https://github.com/dusk-network/node-installer/tree/main
