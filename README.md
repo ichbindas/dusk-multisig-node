@@ -102,7 +102,7 @@ This guide follows the official [Dusk Node Setup Guide](https://docs.dusk.networ
     <img
     src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/firewall_status.png?raw=true"
     alt="Firewall status">
-    <figcaption>Firewall status</figcaption>
+    <figcaption></figcaption>
     </figure>
 
 
@@ -271,7 +271,7 @@ Therefore, it is very important that you follow these rules:
     <img
     src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/scp_feedback.png?raw=true"
     alt="terminal response">
-    <figcaption>Terminal Response</figcaption>
+    <figcaption></figcaption>
     </figure>
 
 
@@ -288,7 +288,7 @@ Therefore, it is very important that you follow these rules:
 <img
 src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/service_rusk_status.png?raw=true"
 alt="Service Rusk Status and increasing block-height">
-<figcaption>Service Rusk Status and increasing block-height</figcaption>
+<figcaption></figcaption>
 </figure>
 
 Afterwards you should see a steady increase of the `block-height` with `ruskyquery block-height`, confirming that your node is syncing to the newest block. Since we just started it, it will take a while to sync to the newest block! 
@@ -327,7 +327,7 @@ Now you should be able to see something like this when you run `/full/path/to/ru
 <img
 src="https://github.com/ichbindas/dusk-multisig-node/blob/main/images/stake_info.png"
 alt="Stake Info">
-<figcaption>Stake Info</figcaption>
+<figcaption></figcaption>
 </figure>
 
 And that is it. Feel free to create an Issue if you have any feedback, issues or suggestions. Enjoy!
