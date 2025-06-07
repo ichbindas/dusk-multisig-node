@@ -1,14 +1,9 @@
 # Introduction to the dusk-multisig-node repository
 
 Hello! This repository is a full tutorial on how to run a [Dusk Provisioner Node](https://docs.dusk.network/operator/provisioner/) using Mutli Signature with an external [rusk-wallet](https://github.com/dusk-network/rusk/tree/master/rusk-wallet). 
-The goal is to strictly seperate access to wallet and node to increase the security of your setup. This is achieved by taking advantage of MultiSig!
-I have created this guide and two scripts to allow node-runners to increase their security and keep their funds safer. 
-
-#####The scripts are currently written  for zsh (macOS / Linux) and commands on <ins>__Nocturne__</ins> (Testnet). 
-
-If anyone wants to make them useable on Windows/Linux feel free to share your script with us! 
-
-The scripts are not necessary to use, you can also install the rusk-wallet yourself on any device (but the node) you like, though an external device is probably the smartest choice.
+The goal is to strictly seperate access to wallet and node to increase the security of our node setup. This is achieved by taking advantage of MultiSignature!
+I have created this guide and a few scripts to allow node-runners to use this and increase their security and keep their funds safer. 
+The guide has been tested on `macOS` and `Ubuntu`, as well as `Nocturne` and `Mainnet`. The scripts are not necessary to follow this guide, you can also install the rusk-wallet yourself on any device (but the node!!), though an external device is probably the safest choice.
 
 The repository contains the following scripts: 
 - __macos_usb_setup.sh__: This script is written for macOS. It formats a mounted device to APFS and encrypts it afterwards. I used the script during the creation of this guide to speed up my testing. It is very raw and I would advise you to look into the script first, if you want to use it. I will describe an [alternative approach](#veracrypt_anchor) when we come to that step.
