@@ -1,4 +1,4 @@
-# Introduction to the dusk-multisig-node repository
+# Guide to Dusk Provisioner Node with MultiSignature Stake
 
 Hello! This repository is a full tutorial on how to run a [Dusk Provisioner Node](https://docs.dusk.network/operator/provisioner/) using Mutli Signature with an external [rusk-wallet](https://github.com/dusk-network/rusk/tree/master/rusk-wallet). 
 The goal is to strictly seperate access to wallet and node to increase the security of our node setup. This is achieved by taking advantage of MultiSignature!
